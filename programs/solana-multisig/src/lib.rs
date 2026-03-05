@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
-declare_id!("3AZTsn99QJnAVJ7gJE5QWgbWgj5jJ8D6wEBn89fKJvJH");
+declare_id!("EVmjpeJPCUGBLRCHZMBusPEqHUDQdAJa4oZHh3LURhy5");
 
 const MAX_OWNERS: usize = 10;
 
