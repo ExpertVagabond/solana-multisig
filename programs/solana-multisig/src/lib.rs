@@ -13,6 +13,13 @@ pub mod solana_multisig {
         require!(owners.len() >= 2 && owners.len() <= MAX_OWNERS, MultisigError::InvalidOwners);
         require!(threshold >= 1 && (threshold as usize) <= owners.len(), MultisigError::InvalidThreshold);
 
+        // Check for duplicate owners
+        for i in 0..owners.len() {
+            for j in (i + 1)..owners.len() {
+                require!(owners[i] != owners[j], MultisigError::DuplicateOwner);
+            }
+        }
+
         let ms = &mut ctx.accounts.multisig;
         ms.owners = owners;
         ms.threshold = threshold;
@@ -29,6 +36,8 @@ pub mod solana_multisig {
 
     pub fn propose_transfer(ctx: Context<ProposeTransfer>, amount: u64, memo: [u8; 32]) -> Result<()> {
         let ms = &mut ctx.accounts.multisig;
+        require!(ms.owners.contains(&ctx.accounts.proposer.key()), MultisigError::NotAnOwner);
+
         let tx_id = ms.tx_count;
         ms.tx_count = tx_id.checked_add(1).ok_or(MultisigError::Overflow)?;
 
@@ -81,6 +90,8 @@ pub mod solana_multisig {
 
     pub fn execute(ctx: Context<Execute>) -> Result<()> {
         let ms = &ctx.accounts.multisig;
+        require!(ms.owners.contains(&ctx.accounts.executor.key()), MultisigError::NotAnOwner);
+
         let tx = &mut ctx.accounts.transaction;
         require!(!tx.executed, MultisigError::AlreadyExecuted);
 
@@ -197,6 +208,8 @@ pub enum MultisigError {
     ThresholdNotMet,
     #[msg("Overflow")]
     Overflow,
+    #[msg("Duplicate owner detected")]
+    DuplicateOwner,
 }
 
 #[event]
