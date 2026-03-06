@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+use anchor_spl::token_interface::{Mint, TokenInterface, TokenAccount, TransferChecked, transfer_checked};
 
 declare_id!("EVmjpeJPCUGBLRCHZMBusPEqHUDQdAJa4oZHh3LURhy5");
 
@@ -102,15 +102,16 @@ pub mod solana_multisig {
         let bump = ms.bump;
         let seeds: &[&[u8]] = &[b"multisig", payer_key.as_ref(), &[bump]];
 
-        token::transfer(CpiContext::new_with_signer(
+        transfer_checked(CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
-            Transfer {
+            TransferChecked {
                 from: ctx.accounts.vault.to_account_info(),
                 to: ctx.accounts.to_account.to_account_info(),
                 authority: ctx.accounts.multisig.to_account_info(),
+                mint: ctx.accounts.mint.to_account_info(),
             },
             &[seeds],
-        ), tx.amount)?;
+        ), tx.amount, ctx.accounts.mint.decimals)?;
 
         tx.executed = true;
 
@@ -163,11 +164,13 @@ pub struct Execute<'info> {
     pub multisig: Account<'info, Multisig>,
     #[account(mut, has_one = multisig)]
     pub transaction: Account<'info, MultisigTransaction>,
+    #[account(constraint = mint.key() == vault.mint)]
+    pub mint: InterfaceAccount<'info, Mint>,
     #[account(mut, constraint = vault.owner == multisig.key())]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: InterfaceAccount<'info, TokenAccount>,
     #[account(mut, constraint = to_account.key() == transaction.to)]
-    pub to_account: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>,
+    pub to_account: InterfaceAccount<'info, TokenAccount>,
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 #[account]
