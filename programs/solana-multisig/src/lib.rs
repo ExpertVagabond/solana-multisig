@@ -18,6 +18,12 @@ pub mod solana_multisig {
         ms.threshold = threshold;
         ms.tx_count = 0;
         ms.bump = ctx.bumps.multisig;
+
+        emit!(MultisigCreated {
+            multisig: ms.key(),
+            owners: ms.owners.clone(),
+            threshold,
+        });
         Ok(())
     }
 
@@ -43,6 +49,13 @@ pub mod solana_multisig {
         if let Some(i) = idx {
             tx.approvals[i] = true;
         }
+
+        emit!(TransactionProposed {
+            multisig: ms.key(),
+            transaction: tx.key(),
+            proposer: ctx.accounts.proposer.key(),
+            tx_id,
+        });
         Ok(())
     }
 
@@ -55,6 +68,14 @@ pub mod solana_multisig {
             .ok_or(MultisigError::NotAnOwner)?;
         require!(!tx.approvals[idx], MultisigError::AlreadyApproved);
         tx.approvals[idx] = true;
+
+        let approval_count = tx.approvals.iter().filter(|a| **a).count() as u8;
+        emit!(TransactionApproved {
+            transaction: tx.key(),
+            approver: ctx.accounts.approver.key(),
+            approvals: approval_count,
+            threshold: ms.threshold,
+        });
         Ok(())
     }
 
@@ -81,6 +102,13 @@ pub mod solana_multisig {
         ), tx.amount)?;
 
         tx.executed = true;
+
+        emit!(TransactionExecuted {
+            transaction: tx.key(),
+            executor: ctx.accounts.executor.key(),
+            amount: tx.amount,
+            destination: tx.to,
+        });
         Ok(())
     }
 }
@@ -169,4 +197,35 @@ pub enum MultisigError {
     ThresholdNotMet,
     #[msg("Overflow")]
     Overflow,
+}
+
+#[event]
+pub struct MultisigCreated {
+    pub multisig: Pubkey,
+    pub owners: Vec<Pubkey>,
+    pub threshold: u8,
+}
+
+#[event]
+pub struct TransactionProposed {
+    pub multisig: Pubkey,
+    pub transaction: Pubkey,
+    pub proposer: Pubkey,
+    pub tx_id: u64,
+}
+
+#[event]
+pub struct TransactionApproved {
+    pub transaction: Pubkey,
+    pub approver: Pubkey,
+    pub approvals: u8,
+    pub threshold: u8,
+}
+
+#[event]
+pub struct TransactionExecuted {
+    pub transaction: Pubkey,
+    pub executor: Pubkey,
+    pub amount: u64,
+    pub destination: Pubkey,
 }
